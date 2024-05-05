@@ -28,7 +28,8 @@ Compiled executable in `bin/Release` is ready to go.
 
 If loading and building for the first time select the 'Restore' button in VS (may need to add and use [nuget.org](https://learn.microsoft.com/en-us/nuget/consume-packages/install-use-packages-visual-studio#package-sources) as a package source then update any packages via `References` > `Manage NuGet Packages...` > `Updates`)
 
-![image](https://github.com/mlcsec/SharpGraphView-final/assets/47215311/490577ce-3d24-4dbe-88b5-9bc3230ee852)
+![nuget-restore](https://github.com/mlcsec/SharpGraphView/assets/47215311/303148b7-bad8-4243-9deb-f8fe2cd44496)
+
 
 The following packages are required:
 
@@ -316,7 +317,7 @@ Addtional `Invoke-RefreshTo...` methods can and will be ported from [TokenHandle
 
 Generates a sign-in message along with a unique code to be sent to the victim (device code phishing). Monitors for authentication, with a timeout set to 15 minutes. Upon successful authentication, a valid token is returned:
 
-![getgraphtokens-edit-crop](https://github.com/mlcsec/SharpGraphView-final/assets/47215311/e92b4c12-c302-4d8e-b8b1-05756f23fb24)
+![getgraphtokens-edit-crop](https://github.com/mlcsec/SharpGraphView/assets/47215311/65de3da1-f40a-46c2-959c-f99885fd80cc)
 
 
 The Microsoft Graph API access token can then be copied to a local file or directly parsed to the `-token` parameter:
@@ -341,7 +342,7 @@ value: [
 
 FOCI can be abused to obtain a valid Azure Management token using the refresh token obtained from `Get-GraphTokens`. Use `Get-TenantID -domain <target.domain>` to get the tenant ID of the target domain. 
 
-![invokemsgraphrefresh-edit-crop](https://github.com/mlcsec/SharpGraphView-final/assets/47215311/e528c5f0-6ce5-4a59-8a6f-f230140bb0b7)
+![invokemsgraphrefresh-edit-crop](https://github.com/mlcsec/SharpGraphView/assets/47215311/46ca692d-d48c-4262-9f47-6ae0b6f004f0)
 
 
 The Azure Management token can then be used with `Connect-AzAccount` to access Azure resources via the Azure Management (Az) PowerShell module:
@@ -378,8 +379,6 @@ Several HTTP error codes may be encountered when running certain methods:
 <br>
 
 # Todo
-
-- add Wiki
 
 ## Addtional Authentication Methods
 
