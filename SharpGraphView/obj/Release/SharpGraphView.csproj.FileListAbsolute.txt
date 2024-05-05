@@ -1,0 +1,11 @@
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\SharpGraphView.exe.config
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\SharpGraphView.exe
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\SharpGraphView.pdb
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\Newtonsoft.Json.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Diagnostics.DiagnosticSource.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\obj\Release\SharpGraphView.csproj.AssemblyReference.cache
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\obj\Release\SharpGraphView.csproj.CoreCompileInputs.cache
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\obj\Release\SharpGraphView.csproj.Fody.CopyLocal.cache
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\obj\Release\SharpGra.20B14D14.Up2Date
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\obj\Release\SharpGraphView.exe
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\obj\Release\SharpGraphView.pdb
