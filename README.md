@@ -126,8 +126,8 @@ Examples:
     SharpGraphView.exe Get-User -id john.doe@vulncorp.onmicrosoft.com -token .\token.txt -select displayname,id
     SharpGraphView.exe Get-UserGroupMembership -token eyJ0eXAiOiJKV1QiLC...
     SharpGraphView.exe List-RecentOneDriveFiles -token .\token.txt
-    SharpGraphView.exe Invoke-Search -search ""password"" -entity driveItem -token eyJ0eXAiOiJKV1QiLC...
-    SharpGraphView.exe Invoke-CustomQuery -Query ""https://graph.microsoft.com/v1.0/sites/{siteId}/drives"" -token .\token.txt
+    SharpGraphView.exe Invoke-Search -search "password" -entity driveItem -token eyJ0eXAiOiJKV1QiLC...
+    SharpGraphView.exe Invoke-CustomQuery -Query "https://graph.microsoft.com/v1.0/sites/{siteId}/drives" -token .\token.txt
 ```
 <br>
 
@@ -304,7 +304,7 @@ PS > .\SharpGraphView.exe invoke-search -search "password" -entity message -toke
 | New-TemporaryAccessPassword              | Create a new temporary access password for x        |  `POST /users/{id or userPrincipalName}/authentication/temporaryAccessPassMethods`                             |
 | Add-GroupMember                          | Add user to target group                                              | `POST /groups/{group-id}/members/$ref`        |
 | Create-User                              | Create new malicious user                                                | `POST /users`          |
-| Download-DriveItem                       | Download content of DriveItem                                             | A lot of options, Invoke-CustomQuery can be used for now <br> `GET /drives/{drive-id}/items/{item-id}/content` <br> `GET /groups/{group-id}/drive/items/{item-id}/content` <br> ...        |
+| Download-DriveItem                       | Download content of DriveItem                                             | A lot of options, Invoke-CustomQuery can be used for now <br> `GET /drives/{drive-id}/items/{item-id}/content` <br> `GET /groups/{group-id}/drive/items/{item-id}/content` <br> ... |
 
 Addtional `Invoke-RefreshTo...` methods can and will be ported from [TokenHandler.ps1](https://github.com/rvrsh3ll/TokenTactics/blob/main/modules/TokenHandler.ps1).
 
