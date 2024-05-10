@@ -9,3 +9,17 @@ C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\obj\Release\SharpGraph
 C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\obj\Release\SharpGra.20B14D14.Up2Date
 C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\obj\Release\SharpGraphView.exe
 C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\obj\Release\SharpGraphView.pdb
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\Microsoft.Bcl.AsyncInterfaces.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\Microsoft.IdentityModel.Abstractions.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\Microsoft.IdentityModel.JsonWebTokens.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\Microsoft.IdentityModel.Logging.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\Microsoft.IdentityModel.Tokens.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Buffers.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.IdentityModel.Tokens.Jwt.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Memory.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Numerics.Vectors.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Runtime.CompilerServices.Unsafe.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Text.Encodings.Web.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Text.Json.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Threading.Tasks.Extensions.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.ValueTuple.xml

