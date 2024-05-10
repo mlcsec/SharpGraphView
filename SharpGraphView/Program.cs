@@ -524,7 +524,7 @@ Examples:
                 if (string.IsNullOrEmpty(Config.accessToken))
                 {
                     Console.WriteLine("\n[!] No token supplied");
-                    Console.WriteLine("SharpGraphView.exe Invoke-RefreshToVaultToken -tenant <tenant id>");
+                    Console.WriteLine("SharpGraphView.exe Invoke-RefreshToVaultToken -token <refresh>");
                     Environment.Exit(0);
                 }
                 else
