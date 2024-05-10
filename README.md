@@ -7,6 +7,7 @@ Created during the new [Advanced Azure Cloud Attacks Lab](https://www.alteredsec
 
 ## Index
 
+- [Updates](#Updates)
 - [Build](#Build)
 - [Usage](#Usage)
     - [Flags](#Flags)
@@ -19,6 +20,19 @@ Created during the new [Advanced Azure Cloud Attacks Lab](https://www.alteredsec
     - [Invoke-RefreshToMSGraphToken](#Invoke-RefreshToMSGraphToken)
 - [Observations](#Observations)
     - [Common HTTP Error Codes](#Common-HTTP-Error-Codes)
+
+<br>
+
+# Updates
+
+- 10/05/2024 - methods added:
+```
+Invoke-RefreshToVaultToken               - Convert refresh token to Azure Vault token (saved to vault_tokens.txt)
+Invoke-CertToAccessToken                 - Convert Azure Application certificate to JWT access token (saved to cert_tokens.txt)
+Update-UserPassword                      - Update the passwordProfile of the target user (NewUserS3cret@Pass!)
+Add-ApplicationPassword                  - Add client secret to target application
+Add-UserTAP                              - Add new Temporary Access Password (TAP) to target user
+```
 
 <br>
 
