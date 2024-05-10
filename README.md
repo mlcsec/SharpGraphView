@@ -47,17 +47,18 @@ SharpGraphView by @mlcsec
 
 Usage:
 
-    SharpGraphView.exe [Method] [-Domain <domain>] [-Tenant <tenant id>] [-Id <object id>] [-Select <display property>] [-Query <api endpoint>] [-Search <string> -Entity <entity>] [-Token <access token>]
+    SharpGraphView.exe [Method] [-Domain <domain>] [-Tenant <tenant id>] [-Id <object id>] [-Select <display property>] [-Query <api endpoint>] [-Search <string> -Entity <entity>] [-Token <access token>] [-Cert <pfx cert>]
 
 Flags:
 
     -Token                                   - Microsoft Graph access token or refresh token for FOCI abuse
-    -Domain                                  - Target domain 
+    -Cert                                    - X509Certificate path
+    -Domain                                  - Target domain
     -Tenant                                  - Target tenant ID
     -Id                                      - ID of target object
     -Select                                  - Filter output for comma seperated properties
     -Query                                   - Raw API query (GET request only)
-    -Search                                  - Search string 
+    -Search                                  - Search string
     -Entity                                  - Search entity [driveItem (OneDrive), message (Mail), chatMessage (Teams), site (SharePoint), event (Calenders)]
     -help                                    - Show help
 
@@ -67,6 +68,8 @@ Auth:
     Get-TenantID                             - Get tenant ID for target domain
     Invoke-RefreshToMSGraphToken             - Convert refresh token to Micrsoft Graph token (saved to new_graph_tokens.txt)
     Invoke-RefreshToAzureManagementToken     - Convert refresh token to Azure Management token (saved to az_tokens.txt)
+    Invoke-RefreshToVaultToken               - Convert refresh token to Azure Vault token (saved to vault_tokens.txt)
+    Invoke-CertToAccessToken                 - Convert Azure Application certificate to JWT access token
 
 Post-Auth:
 
@@ -74,7 +77,7 @@ Post-Auth:
     Get-CurrentUserActivity                  - Get recent actvity and actions of current user
 
     Get-OrgInfo                              - Get information relating to the target organisation
-    Get-Domains                              - Get domain objects 
+    Get-Domains                              - Get domain objects
     Get-User                                 - Get all users (default) or target user (-id)
     Get-UserProperties                       - Get current user properties (default) or target user (-id)
     Get-UserGroupMembership                  - Get group memberships for current user (default) or target user (-id)
@@ -84,7 +87,7 @@ Post-Auth:
     Get-AppRoleAssignments                   - Get application role assignments for current user (default) or target user (-id)
     Get-ConditionalAccessPolicy              - Get conditional access policy properties
     Get-PersonalContacts                     - Get contacts of the current user
-    Get-CrossTenantAccessPolicy              - Get cross tentant access policy properties 
+    Get-CrossTenantAccessPolicy              - Get cross tentant access policy properties
     Get-PartnerCrossTenantAccessPolicy       - Get partner cross tenant access policy
     Get-UserChatMessages                     - Get all messages from all chats for target user
     Get-AdministrativeUnitMember             - Get members of administrative unit
@@ -92,9 +95,9 @@ Post-Auth:
     Get-UserPermissionGrants                 - Get permissions grants of current user (default) or target user (-id)
     Get-oauth2PermissionGrants               - Get oauth2 permission grants for current user (default) or target user (-id)
     Get-Messages                             - Get all messages in signed-in user's mailbox (default) or target user (-id)
-    Get-TemporaryAccessPassword              - Get TAP details for current user (default) or target user (-id) 
+    Get-TemporaryAccessPassword              - Get TAP details for current user (default) or target user (-id)
     Get-Password                             - Get passwords registered to current user (default) or target user (-id)
-    
+
     List-AuthMethods                         - List authentication methods for current user (default) or target user (-id)
     List-DirectoryRoles                      - List all directory roles activated in the tenant
     List-Notebooks                           - List current user notebooks (default) or target user (-id)
@@ -102,11 +105,11 @@ Post-Auth:
     List-ConditionalAuthenticationContexts   - List conditional access authentication context
     List-ConditionalNamedLocations           - List conditional access named locations
     List-SharePointRoot                      - List root SharePoint site properties
-    List-SharePointSites                     - List any available SharePoint sites 
+    List-SharePointSites                     - List any available SharePoint sites
     List-ExternalConnections                 - List external connections
     List-Applications                        - List all Azure Applications
     List-ServicePrincipals                   - List all service principals
-    List-Tenants                             - List tenants 
+    List-Tenants                             - List tenants
     List-JoinedTeams                         - List joined teams for current user (default) or target user (-id)
     List-Chats                               - List chats for current user (default) or target user (-id)
     List-Devices                             - List devices
@@ -115,9 +118,12 @@ Post-Auth:
     List-RecentOneDriveFiles                 - List current user recent OneDrive files
     List-SharedOneDriveFiles                 - List OneDrive files shared with the current user
 
-    Invoke-Search                            - Search for string within entity type (driveItem, message, chatMessage, site, event) 
+    Invoke-Search                            - Search for string within entity type (driveItem, message, chatMessage, site, event)
     Find-PrivilegedRoleUsers                 - Find users with privileged roles assigned
     Invoke-CustomQuery                       - Custom GET query to target Graph API endpoint
+    Update-UserPassword                      - Update the passwordProfile of the target user (NewUserS3cret@Pass!)
+    Add-ApplicationPassword                  - Add client secret to target application
+    Add-UserTAP                              - Add new Temporary Access Password (TAP) to target user
 
 Examples:
 
@@ -142,6 +148,16 @@ PS > .\SharpGraphView.exe Get-Group -token .\token.txt
 PS > .\SharpGraphView.exe Get-Group -token eyJ0eXAiOiJKV1QiLCJ...
 
 ```
+<br>
+
+#### -Cert
+
+Path to Azure Application X509Certificate (**REQUIRED** for `Invoke-CertToAccessToken`):
+
+```powershell
+.\SharpGraphView.exe invoke-certtoaccesstoken -tenant <tenant id> -cert .\cert.pfx -id <app id>
+```
+
 <br>
 
 #### -Domain
@@ -233,9 +249,11 @@ PS > .\SharpGraphView.exe invoke-search -search "password" -entity message -toke
 | Command                                  | Description                                    |
 |------------------------------------------|------------------------------------------------|
 | **Get-GraphTokens**                          | Get graph token via device code phish (saved to _graph_tokens.txt_) | 
-| **Get-TenantID** -domain \<domain\>                            | Get tenant ID for target domain  | 
-| **Invoke-RefreshToMSGraphToken** -token \<refresh\> -tenant \<id\>            | Convert refresh token to Microsoft Graph token (saved to _new_graph_tokens.txt_)  |  
-| **Invoke-RefreshToAzureManagementToken** -token \<refresh\> -tenant \<id\>    | Convert refresh token to Azure Management token (saved to _az_tokens.txt_)|
+| **Get-TenantID** -Domain \<domain\>                            | Get tenant ID for target domain  | 
+| **Invoke-RefreshToMSGraphToken** -Token \<refresh\> -Tenant \<id\>            | Convert refresh token to Microsoft Graph token (saved to _new_graph_tokens.txt_)  |  
+| **Invoke-RefreshToAzureManagementToken** -Token \<refresh\> -Tenant \<id\>    | Convert refresh token to Azure Management token (saved to _az_tokens.txt_)|
+|**Invoke-RefreshToVaultToken** -Token \<refresh\> | Convert refresh token to Azure Vault token (saved to _vault_tokens.txt_)|
+|**Invoke-CertToAccessToken** -Cert \<path to pfx\> -ID \<app id\> -Tenant \<id\>| Convert Azure Application certificate to JWT access token|
 
 ### Post-Auth Methods:
 
@@ -292,6 +310,10 @@ PS > .\SharpGraphView.exe invoke-search -search "password" -entity message -toke
 | **Invoke-Search** -Search \<string\> -Entity \<entity\>                           | Search for string within entity type (driveItem, message, chatMessage, site, event)          |
 | **Find-PrivilegedRoleUsers**                 | Find users with privileged roles assigned                                               |
 | **Invoke-CustomQuery** -Query \<graph endpoint URL\>                      | Custom GET query to target Graph API endpoint e.g. `https://graph.microsoft.com/v1.0/me`                                           |
+| **Update-UserPassword** -ID \<userid/upn\> | Update the passwordProfile of the target user (NewUserS3cret@Pass!) |
+|**Add-ApplicationPassword** -ID \<appid\> |Add client secret to target application|
+|**Add-UserTAP** -ID \<userid/upn\> |Add new Temporary Access Password (TAP) to target user|
+
 
 ### Coming soon:
 
@@ -299,9 +321,6 @@ PS > .\SharpGraphView.exe invoke-search -search "password" -entity message -toke
 
 | Method                                  | Description                                                     |Endpoints                                        |
 |------------------------------------------|-----------------------------------------------------------------|-----------------------------------------------|
-| Add-ApplicationPassword                  | POST request to add application client secret                  |  add passwordCredential `POST /applications/{id}/addPassword`                    |
-| Update-UserPassword                      | PATCH request to update target user password                   | add passwordProfile `PATCH /users/{id or userPrincipalName}`                       |
-| New-TemporaryAccessPassword              | Create a new temporary access password for x        |  `POST /users/{id or userPrincipalName}/authentication/temporaryAccessPassMethods`                             |
 | Add-GroupMember                          | Add user to target group                                              | `POST /groups/{group-id}/members/$ref`        |
 | Create-User                              | Create new malicious user                                                | `POST /users`          |
 | Download-DriveItem                       | Download content of DriveItem                                             | A lot of options, Invoke-CustomQuery can be used for now <br> `GET /drives/{drive-id}/items/{item-id}/content` <br> `GET /groups/{group-id}/drive/items/{item-id}/content` <br> ... |
@@ -364,6 +383,53 @@ FOCI can be abused again to obtain a new Microsoft Graph token if the original t
 PS > .\SharpGraphView.exe Invoke-RefreshTokenToMSGraphToken -token .\refreshtoken.txt -tenant <tenant id>
 ```
 
+## Invoke-RefreshToVaultToken
+
+An Azure Vault token can be obtained in a similar fashion:
+
+```powershell
+PS > .\SharpGraphView.exe invoke-refreshtovaulttoken -token <refresh>
+
+[*] Invoke-RefreshToVaultToken
+
+[+] Token Obtained!
+[*] token_type: Bearer
+[*] scope: https://vault.azure.net/user_impersonation https://vault.azure.net/.default
+[*] expires_in: 5164
+[*] ext_expires_in: 5164
+[*] access_token: eyJ0eXAiOiJKV1QiL...
+[*] refresh_token: 0.AUoAQlq91mV...
+[*] foci: 1
+[*] id_token: eyJ0eXAiOiJKV1Q...
+
+[+] Token information written to 'vault_tokens.txt'.
+
+# connect with new Vault token
+PS > Connect-AzAccount -AccessToken <ARM access token> -KeyVaultAccessToken <vault access token> -AccountId <user account>
+```
+
+## Invoke-CertToAccessToken
+
+Obtain an access token from a valid Azure Application certificate then authenticate as the service principal:
+
+```powershell
+PS > .\SharpGraphView.exe Invoke-CertToAccessToken -tenant <tenant id> -cert .\cert.pfx -id <app id>
+
+[*] Invoke-CertToAccessToken
+
+[+] Token Obtained!
+[*] token_type: Bearer
+[*] expires_in: 3599
+[*] ext_expires_in: 3599
+[*] access_token: eyJ0eXAiOiJKV1QiLCJub2...
+
+[+] Token information written to 'cert_tokens.txt'.
+```
+
+The access token can then be used as normal with the `-Token` flag.
+
+
+
 <br>
 
 # Observations
@@ -372,6 +438,7 @@ PS > .\SharpGraphView.exe Invoke-RefreshTokenToMSGraphToken -token .\refreshtoke
 
 Several HTTP error codes may be encountered when running certain methods:
 
+- `400` - Bad request, can occur when authenticated as a service principal and attempt to use methods which target `/me/<...>` endpoints
 - `401` - Unauthorised, commonly occurs when an access token expires, isn't formatted correctly, or hasn't been supplied
 - `403` - Access to the resource/endpoint is forbidden, likely due to insufficient perms or some form of conditional access
 - `429` - User has sent too many requests in a given amount of time and triggered tate limiting, hold off for a few minutes
@@ -385,10 +452,6 @@ Several HTTP error codes may be encountered when running certain methods:
 Currently, only access token authentication is supported. The following authentication processes will be ported:
 
 ```powershell
-# cert auth:
-[X509Certificate]$TargetAppCertificate = Get-PfxCertificate -FilePath .\cert.pfx
-Connect-MgGraph -Certificate $GeologyAppCertificate -ClientId <> -TenantId <>   
-
 # client secret auth:
 $password = ConvertTo-SecureString 'app secret...' -AsPlainText -Force
 creds = New-Object System.Management.Automation.PSCredential('app id', $password)
