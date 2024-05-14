@@ -25,13 +25,17 @@ Created during the new [Advanced Azure Cloud Attacks Lab](https://www.alteredsec
 
 # Updates
 
-- 10/05/2024 - methods added:
+- 10/05/2024
 ```
 Invoke-RefreshToVaultToken               - Convert refresh token to Azure Vault token (saved to vault_tokens.txt)
 Invoke-CertToAccessToken                 - Convert Azure Application certificate to JWT access token (saved to cert_tokens.txt)
 Update-UserPassword                      - Update the passwordProfile of the target user (NewUserS3cret@Pass!)
 Add-ApplicationPassword                  - Add client secret to target application
 Add-UserTAP                              - Add new Temporary Access Password (TAP) to target user
+```
+- 14/05/2024
+```
+Get-TokenScope                           - Get scope for supplied token
 ```
 
 <br>
@@ -80,6 +84,7 @@ Auth:
 
     Get-GraphTokens                          - Obtain graph token via device code phish (saved to graph_tokens.txt)
     Get-TenantID                             - Get tenant ID for target domain
+    Get-TokenScope                           - Get scope of supplied token
     Invoke-RefreshToMSGraphToken             - Convert refresh token to Micrsoft Graph token (saved to new_graph_tokens.txt)
     Invoke-RefreshToAzureManagementToken     - Convert refresh token to Azure Management token (saved to az_tokens.txt)
     Invoke-RefreshToVaultToken               - Convert refresh token to Azure Vault token (saved to vault_tokens.txt)
@@ -264,6 +269,7 @@ PS > .\SharpGraphView.exe invoke-search -search "password" -entity message -toke
 |------------------------------------------|------------------------------------------------|
 | **Get-GraphTokens**                          | Get graph token via device code phish (saved to _graph_tokens.txt_) | 
 | **Get-TenantID** -Domain \<domain\>                            | Get tenant ID for target domain  | 
+| **Get-TokenScope** -Token \<token\>                   | Get scope for the supplied token|
 | **Invoke-RefreshToMSGraphToken** -Token \<refresh\> -Tenant \<id\>            | Convert refresh token to Microsoft Graph token (saved to _new_graph_tokens.txt_)  |  
 | **Invoke-RefreshToAzureManagementToken** -Token \<refresh\> -Tenant \<id\>    | Convert refresh token to Azure Management token (saved to _az_tokens.txt_)|
 |**Invoke-RefreshToVaultToken** -Token \<refresh\> | Convert refresh token to Azure Vault token (saved to _vault_tokens.txt_)|
@@ -442,7 +448,47 @@ PS > .\SharpGraphView.exe Invoke-CertToAccessToken -tenant <tenant id> -cert .\c
 
 The access token can then be used as normal with the `-Token` flag.
 
+## Get-TokenScope
 
+Display the scope of the access token:
+
+```powershell
+PS > .\SharpGraphView.exe get-tokenscope -token eyJ0eXAiOiJKV...
+
+[*] Get-TokenScope
+AuditLog.Read.All
+Calendar.ReadWrite
+Calendars.Read.Shared
+Calendars.ReadWrite
+Contacts.ReadWrite
+DataLossPreventionPolicy.Evaluate
+Directory.AccessAsUser.All
+Directory.Read.All
+Files.Read
+Files.Read.All
+Files.ReadWrite.All
+Group.Read.All
+Group.ReadWrite.All
+InformationProtectionPolicy.Read
+Mail.ReadWrite
+Mail.Send
+Notes.Create
+Organization.Read.All
+People.Read
+People.Read.All
+Printer.Read.All
+PrintJob.ReadWriteBasic
+SensitiveInfoType.Detect
+SensitiveInfoType.Read.All
+SensitivityLabel.Evaluate
+Tasks.ReadWrite
+TeamMember.ReadWrite.All
+TeamsTab.ReadWriteForChat
+User.Read.All
+User.ReadBasic.All
+User.ReadWrite
+Users.Read
+```
 
 <br>
 
