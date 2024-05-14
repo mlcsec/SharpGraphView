@@ -44,6 +44,7 @@ Auth:
 
     Get-GraphTokens                          - Obtain graph token via device code phish (saved to graph_tokens.txt)
     Get-TenantID                             - Get tenant ID for target domain
+    Get-TokenScope                           - Get scope of supplied token
     Invoke-RefreshToMSGraphToken             - Convert refresh token to Micrsoft Graph token (saved to new_graph_tokens.txt)
     Invoke-RefreshToAzureManagementToken     - Convert refresh token to Azure Management token (saved to az_tokens.txt)
     Invoke-RefreshToVaultToken               - Convert refresh token to Azure Vault token (saved to vault_tokens.txt)
@@ -361,6 +362,52 @@ Examples:
                             Console.WriteLine($"[!] Error retrieving OpenID configuration: {ex.Message}");
                         }
                     }
+                }
+            }
+
+            // Get-TokenScope
+
+            if (string.Equals(command, "Get-TokenScope", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (string.IsNullOrEmpty(Config.accessToken))
+                {
+                    Console.WriteLine("\n[!] No token supplied");
+                    Console.WriteLine("SharpGraphView.exe Get-TokenScope -token <access token>");
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    Console.WriteLine("\n[*] Get-TokenScope");
+
+                    var handler = new JwtSecurityTokenHandler();
+                    var jsonToken = handler.ReadToken(Config.accessToken) as JwtSecurityToken;
+
+                    if (jsonToken != null)
+                    {
+                        // Get the 'scope' claim value
+                        string scope = jsonToken.Claims.FirstOrDefault(c => c.Type == "scp")?.Value;
+
+                        if (scope != null)
+                        {
+                            // Split scopes by space
+                            var scopeArray = scope.Split(' ');
+
+                            // Print each scope on a new line
+                            foreach (var s in scopeArray)
+                            {
+                                Console.WriteLine(s);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("No scopes found in the access token.");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Invalid access token format.");
+                    }
+
                 }
             }
 
@@ -1179,7 +1226,7 @@ Examples:
 
             if (string.Equals(command, "List-OneDrives", StringComparison.CurrentCultureIgnoreCase))
             {
-                Console.WriteLine("\n[*] Get-OneDriveFiles");
+                Console.WriteLine("\n[*] List-OneDrives");
                 /*
                  * GET /groups/{groupId}/drives
                  * GET /sites/{siteId}/drives
@@ -1684,5 +1731,9 @@ Examples:
                 Console.WriteLine($"[-] Error content: {errorContent}");
             }
         }
+
+        // Add new user
+
+        // Add group member
     }
 }
