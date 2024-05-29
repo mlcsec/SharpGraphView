@@ -1407,7 +1407,7 @@ Examples:
 
             if (string.Equals(command, "Get-oauth2PermissionGrants", StringComparison.CurrentCultureIgnoreCase))
             {
-                Console.WriteLine("\n[*] List-oauth2PermissionGrants");
+                Console.WriteLine("\n[*] Get-oauth2PermissionGrants");
                 string apiUrl = string.IsNullOrEmpty(Config.id) ? "https://graph.microsoft.com/v1.0/me/oauth2PermissionGrants" : $"https://graph.microsoft.com/v1.0/users/{Config.id}/oauth2PermissionGrants";
 
                 if (!string.IsNullOrEmpty(Config.select))
