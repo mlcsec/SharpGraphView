@@ -16,6 +16,7 @@ namespace SharpGraphView
         public static string entity = "";
         public static string query = "";
         public static string tenant = "";
+        public static string key = "";
         public static string domain = "";
         public static X509Certificate2 cert;
 

