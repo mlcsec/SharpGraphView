@@ -23,3 +23,13 @@ C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Tex
 C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Text.Json.xml
 C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Threading.Tasks.Extensions.xml
 C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.ValueTuple.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\Microsoft.Identity.Client.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\Microsoft.Identity.Client.Extensions.Msal.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\Microsoft.Rest.ClientRuntime.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\Microsoft.Rest.ClientRuntime.Azure.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.ClientModel.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.IO.FileSystem.AccessControl.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Memory.Data.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Security.AccessControl.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Security.Cryptography.ProtectedData.xml
+C:\Users\user0\source\repos\SharpGraphView\SharpGraphView\bin\Release\System.Security.Principal.Windows.xml
