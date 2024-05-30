@@ -270,20 +270,13 @@ Examples:
                 responseContent = await response.Content.ReadAsStringAsync();
                 JObject certificate = JObject.Parse(responseContent);
 
-                string x5t = null;
-                if (certificate["x5t"] is JValue x5tValue)
-                {
-                    x5t = x5tValue.Value.ToString();
-                }
+                string x5t = certificate["x5t"]?.ToString();
+                string kid = certificate["kid"]?.ToString();
 
-                string kid = null;
-                if (certificate["kid"] is JValue kidValue)
-                {
-                    kid = kidValue.Value.ToString();
-                }
-
+                //Console.WriteLine(certificate.ToString());
                 Console.WriteLine("\n[+] Certificate Details Obtained!");
-                Console.WriteLine(certificate.ToString());
+                Console.WriteLine($"kid: {kid ?? "N/A"}");
+                Console.WriteLine($"x5t: {x5t ?? "N/A"}");
 
 
                 // Create JWT
