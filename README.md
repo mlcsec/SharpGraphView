@@ -27,26 +27,6 @@ Created during the new [Advanced Azure Cloud Attacks Lab](https://www.alteredsec
 
 <br>
 
-# Updates
-
-- 10/05/2024
-```
-Invoke-RefreshToVaultToken     - Convert refresh token to Azure Vault token (saved to vault_tokens.txt)
-Invoke-CertToAccessToken       - Convert Azure Application certificate to JWT access token (saved to cert_tokens.txt)
-Update-UserPassword            - Update the passwordProfile of the target user (NewUserS3cret@Pass!)
-Add-ApplicationPassword        - Add client secret to target application
-Add-UserTAP                    - Add new Temporary Access Password (TAP) to target user
-```
-- 14/05/2024
-```
-Get-TokenScope                 - Get scope for supplied token
-```
-- 30/05/2024
-```
-New-SignedJWT                  - Construct JWT and sign using Key Vault certificate (Azure Key Vault access token required) then generate Azure Management (ARM) token
-```
-<br>
-
 # Build
 
 Compiled executable in `bin/Release` is ready to go. 
@@ -184,7 +164,7 @@ PS > .\SharpGraphView.exe Get-Group -token eyJ0eXAiOiJKV1QiLCJ...
 Path to Azure Application X509Certificate (**REQUIRED** for `Invoke-CertToAccessToken`):
 
 ```powershell
-.\SharpGraphView.exe Invoke-CertToAccessToken -tenant <tenant id> -cert .\cert.pfx -id <app id>
+PS > .\SharpGraphView.exe Invoke-CertToAccessToken -tenant <tenant id> -cert .\cert.pfx -id <app id>
 ```
 
 <br>
