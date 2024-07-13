@@ -1,8 +1,10 @@
-# SharpGraphView
+# SharpGraphView 
+
+## READ-ONLY: Please see [Graphpython](https://github.com/mlcsec/Graphpython) for a more comprehensive solution covering everything from SharpGraphView and much more
 
 Sharp post-exploitation toolkit providing modular access to the Microsoft Graph API (*graph.microsoft.com*) for cloud and red team operations. 
 
-Created during the new [Advanced Azure Cloud Attacks Lab](https://www.alteredsecurity.com/azureadvanced). Inspired by [GraphRunner](https://github.com/dafthack/GraphRunner) and [TokenTactics](https://github.com/rvrsh3ll/TokenTactics).
+Created during the [Advanced Azure Cloud Attacks Lab](https://www.alteredsecurity.com/azureadvanced). Inspired by [GraphRunner](https://github.com/dafthack/GraphRunner) and [TokenTactics](https://github.com/rvrsh3ll/TokenTactics).
 
 
 ## Index
